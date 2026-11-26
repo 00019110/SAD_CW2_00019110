@@ -10,6 +10,7 @@ This repository holds the artefacts referenced in the report `SAD_CW2_00019110.d
 | [`hifi-prototype/`](hifi-prototype/) | **High-fidelity prototype** – an executable web application (Python, Flask, SQLite) |
 | [`lofi-prototype/`](lofi-prototype/) | **Low-fidelity prototype** – a clickable draw.io file, one sketched screen per page, linked together |
 | [`diagrams/`](diagrams/) | **UML class diagrams** – draw.io sources and PNG exports (architecture + four class diagrams) |
+| [`AI-CONVERSATION.md`](AI-CONVERSATION.md) | **Record of the conversation with the AI assistant** (Claude) used to produce these artefacts |
 
 ## The case
 
