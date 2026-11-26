@@ -4,8 +4,9 @@ Systems Analysis and Design (6BUIS026C), Coursework 2, student ID 00019110.
 
 This repository holds the artefacts referenced in the report `SAD_CW2_00019110.docx`.
 
-| Folder | What it is |
+| Folder / file | What it is |
 |---|---|
+| [`screencast.mp4`](screencast.mp4) | **Screencast** – 56-second narrated recording of the high-fidelity prototype running |
 | [`hifi-prototype/`](hifi-prototype/) | **High-fidelity prototype** – an executable web application (Python, Flask, SQLite) |
 | [`lofi-prototype/`](lofi-prototype/) | **Low-fidelity prototype** – a clickable draw.io file, one sketched screen per page, linked together |
 | [`diagrams/`](diagrams/) | **UML class diagrams** – draw.io sources and PNG exports (architecture + two class diagrams) |
