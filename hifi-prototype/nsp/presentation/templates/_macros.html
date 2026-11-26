@@ -1,0 +1,98 @@
+{# Shared display helpers. Status is always shown as a colour AND a word (NFR-03.4). #}
+
+{% macro risk_chip(level) -%}
+  {%- set cls = {'High': 'crit', 'Medium': 'warn', 'Low': 'good'}.get(level.value, '') -%}
+  <span class="chip {{ cls }}">{{ level.value }}</span>
+{%- endmacro %}
+
+{% macro alert_chip(status) -%}
+  {%- set cls = {'Open': 'crit', 'In progress': 'warn', 'Resolved': 'good'}.get(status.value, '') -%}
+  <span class="chip {{ cls }}">{{ status.value }}</span>
+{%- endmacro %}
+
+{% macro attendance_chip(status) -%}
+  {%- set cls = {'Present': 'good', 'Late': 'warn', 'Absent': 'crit'}.get(status.value, '') -%}
+  <span class="chip {{ cls }}">{{ status.value }}</span>
+{%- endmacro %}
+
+{% macro work_chip(work) -%}
+  {%- if not work -%}<span class="chip">Not checked in</span>
+  {%- else -%}
+    {%- set cls = {'Open': 'info', 'Closed': 'good', 'Left early': 'warn', 'Missing check-out': 'crit'}.get(work.status.value, '') -%}
+    <span class="chip {{ cls }}">{{ 'Checked in' if work.status.value == 'Open' else work.status.value }}</span>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro kpi_status(result) -%}
+  {%- set cls = {'Final': 'good', 'Partial': 'warn', 'Provisional': 'info'}[result.status] -%}
+  <span class="chip {{ cls }} plain">{{ result.status }}</span>{% if result.provisional and result.partial %} <span class="chip warn plain">Partial</span>{% endif %}
+{%- endmacro %}
+
+{% macro delta(value, unit='') -%}
+  {%- if value is none -%}<span class="muted">–</span>
+  {%- elif value > 0 -%}<span class="delta up num">▲ {{ '%.1f'|format(value) }}{{ unit }}</span>
+  {%- elif value < 0 -%}<span class="delta down num">▼ {{ '%.1f'|format(-value) }}{{ unit }}</span>
+  {%- else -%}<span class="muted num">0.0{{ unit }}</span>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro meter(value, cls='') -%}
+  <div class="meter {{ cls }}"><i style="width: {{ [0, [value or 0, 100]|min]|max }}%"></i></div>
+{%- endmacro %}
+
+{% macro stars(rating) -%}
+  <span class="stars" title="{{ rating }} out of 5"><b>{{ '★' * rating }}</b>{{ '★' * (5 - rating) }}</span>
+{%- endmacro %}
+
+{# Single-series column chart. points = [(label, value or None)]. Hover shows the exact value. #}
+{% macro columns(points, unit='%', top=None, height=170) -%}
+  {%- set values = points|map(attribute=1)|select('number')|list -%}
+  {%- set peak = top or ((values|max if values else 1) * 1.25) or 1 -%}
+  {%- set w = 520 %}{% set h = height %}{% set base = h - 26 %}{% set plot = base - 22 -%}
+  {%- set step = (w - 20) / (points|length or 1) -%}
+  <svg class="chart" viewBox="0 0 {{ w }} {{ h }}" role="img">
+    <line class="grid-line" x1="10" x2="{{ w - 10 }}" y1="{{ base }}" y2="{{ base }}"/>
+    <line class="grid-line" x1="10" x2="{{ w - 10 }}" y1="{{ base - plot / 2 }}" y2="{{ base - plot / 2 }}" stroke-dasharray="3 4"/>
+    {%- for label, value in points %}
+      {%- set x = 10 + step * loop.index0 + step * 0.22 %}{% set bw = step * 0.56 -%}
+      {%- if value is not none %}
+        {%- set bh = [plot * value / peak, 2]|max -%}
+        <path class="bar" d="M{{ x }},{{ base }} V{{ base - bh + 4 }} q0,-4 4,-4 H{{ x + bw - 4 }} q4,0 4,4 V{{ base }} Z"><title>{{ label|month_label }}: {{ '%.1f'|format(value) }}{{ unit }}</title></path>
+        <text class="value" x="{{ x + bw / 2 }}" y="{{ base - bh - 6 }}" text-anchor="middle">{{ '%.1f'|format(value) }}{{ unit }}</text>
+      {%- else %}
+        <text x="{{ x + bw / 2 }}" y="{{ base - 8 }}" text-anchor="middle">no data</text>
+      {%- endif %}
+      <text x="{{ x + bw / 2 }}" y="{{ h - 8 }}" text-anchor="middle">{{ label|month_label }}</text>
+    {%- endfor %}
+  </svg>
+{%- endmacro %}
+
+{# Single-series line chart on a 0-100 scale. points = [(label, value or None)]. #}
+{% macro trend_line(points, height=190) -%}
+  {%- set w = 520 %}{% set h = height %}{% set base = h - 26 %}{% set top = 18 %}{% set plot = base - top -%}
+  {%- set step = (w - 70) / ([points|length - 1, 1]|max) -%}
+  {%- set known = [] -%}
+  {%- for label, value in points %}{% if value is not none %}{% set _ = known.append((40 + step * loop.index0, base - plot * value / 100, label, value)) %}{% endif %}{% endfor -%}
+  <svg class="chart" viewBox="0 0 {{ w }} {{ h }}" role="img">
+    {%- for tick in (0, 50, 100) %}
+      <line class="grid-line" x1="34" x2="{{ w - 10 }}" y1="{{ base - plot * tick / 100 }}" y2="{{ base - plot * tick / 100 }}"/>
+      <text x="28" y="{{ base - plot * tick / 100 + 4 }}" text-anchor="end">{{ tick }}</text>
+    {%- endfor %}
+    {%- if known|length > 1 %}
+      <polyline class="line" points="{% for x, y, l, v in known %}{{ x }},{{ y }} {% endfor %}"/>
+    {%- endif %}
+    {%- for x, y, label, value in known %}
+      <circle class="dot" cx="{{ x }}" cy="{{ y }}" r="5"><title>{{ label|month_label }}: {{ '%.1f'|format(value) }}</title></circle>
+      {%- if loop.first or loop.last %}<text class="value" x="{{ x }}" y="{{ y + 19 if value > 80 else y - 11 }}" text-anchor="middle">{{ '%.1f'|format(value) }}</text>{% endif %}
+    {%- endfor %}
+    {%- for label, value in points %}
+      <text x="{{ 40 + step * loop.index0 }}" y="{{ h - 8 }}" text-anchor="middle">{{ label|month_label }}</text>
+    {%- endfor %}
+  </svg>
+{%- endmacro %}
+
+{% macro month_filter(months, month, extra='') -%}
+  <select name="month" onchange="this.form.submit()">
+    {% for m in months|reverse %}<option value="{{ m }}" {{ 'selected' if m == month }}>{{ m|month_label }}</option>{% endfor %}
+  </select>
+{%- endmacro %}

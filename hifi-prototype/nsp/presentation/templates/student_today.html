@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}Today{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Hello, {{ current_user.full_name.split()[0] }}</h1><div class="sub">Scan the QR code at the classroom door to mark yourself present.</div></div>
+  <div class="actions"><a class="btn" href="{{ url_for('attendance.scan') }}">Scan room QR</a></div>
+</div>
+<div class="grid side">
+  <div class="card flush">
+    <h2>Today's lessons</h2>
+    <table>
+      <thead><tr><th>Time</th><th>Lesson</th><th>Room</th><th>My attendance</th></tr></thead>
+      <tbody>
+      {% for row in rows %}
+        {% set s = row.session %}
+        <tr>
+          <td class="nowrap num"><b>{{ s.starts_at.strftime('%H:%M') }}</b> – {{ s.ends_at.strftime('%H:%M') }}</td>
+          <td><b>{{ s.group.name }}</b> · {{ s.kind_label }}<span class="sub">{{ s.teacher.full_name }}</span></td>
+          <td>{{ s.room.name }}</td>
+          <td>{% if row.check_in %}<span class="chip {{ 'warn' if row.check_in.minutes_late else 'good' }}">{{ row.check_in.status.value }}</span><span class="sub">{{ row.check_in.timestamp.strftime('%H:%M') }} · {{ row.check_in.method.value }}</span>
+              {% elif row.window %}<a class="btn small" href="{{ url_for('attendance.scan', room=s.room_id) }}">Check in</a>
+              {% else %}<span class="muted">{{ 'Not open yet' if row.state == 'upcoming' else 'Not scanned' }}</span>{% endif %}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="empty">No lessons today.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card">
+    <h2>My recent check-ins</h2>
+    {% for c in recent %}
+      <p class="small"><b>{{ c.timestamp.strftime('%d %b, %H:%M') }}</b> · {{ c.session.group.name }} · {{ c.session.room.name }} <span class="chip {{ 'warn' if c.minutes_late else 'good' }}">{{ c.status.value }}</span></p>
+    {% else %}
+      <p class="muted">No check-ins yet. Students see only their own check-ins.</p>
+    {% endfor %}
+    <p style="margin-top:14px"><a class="btn ghost" href="{{ url_for('risk.feedback') }}">Give feedback on my teachers</a></p>
+  </div>
+</div>
+{% endblock %}

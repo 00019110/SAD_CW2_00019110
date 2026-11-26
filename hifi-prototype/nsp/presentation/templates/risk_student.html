@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ student.full_name }}{% endblock %}
+{% block crumb %}<a href="{{ url_for('risk.dashboard') }}">Dropout risk</a> / Student{% endblock %}
+{% block content %}
+{% set group = student.groups[0] if student.groups else none %}
+<div class="page-head">
+  <div class="person"><span class="avatar" style="width:46px;height:46px;font-size:15px">{{ student.initials }}</span>
+    <div><h1>{{ student.full_name }}</h1>
+    <div class="sub">{% if group %}{{ group.name }} · {{ group.subject.value }} · {{ group.level }} · {{ group.main_teacher.full_name }}{% endif %} · enrolled {{ student.enrolled_on.strftime('%d %b %Y') }}</div></div>
+  </div>
+  <div class="actions">
+    {% if withdrawal %}<span class="chip">Withdrawn {{ withdrawal.withdrawn_on.strftime('%d %b %Y') }} · {{ withdrawal.reason.value }}</span>
+    {% elif score %}{{ ui.risk_chip(score.level) }}{% endif %}
+  </div>
+</div>
+
+<div class="grid side">
+  <div class="stack">
+    <div class="card">
+      <h2>Why this student is at risk</h2>
+      {% if score and score.level != RiskLevel.NOT_ENOUGH_DATA %}
+        <div class="meter-row" style="grid-template-columns:1fr 90px;margin-bottom:12px">{{ ui.meter(score.score, {'High': 'crit', 'Medium': 'warn', 'Low': 'good'}[score.level.value]) }}<b class="num right" style="font-size:20px">{{ score.score }} / 100</b></div>
+        {% for factor in score.factor_list %}<p>• {{ factor }}</p>{% else %}<p class="muted">No risk factors at the moment.</p>{% endfor %}
+        <p class="small muted">Score = consecutive absences + negative feedback + reported circumstances + unpaid tuition. High from 50, Medium from 25.</p>
+      {% else %}
+        <p class="muted">Not enough data: the student enrolled less than two weeks ago.</p>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h2>Attendance – last {{ history|length }} lessons</h2>
+      <div class="dots">
+        {% for entry in history %}
+          {% set letter = {'Present': 'P', 'Late': 'L', 'Absent': 'A'}.get(entry.status.value, 'E') %}
+          <span class="{{ letter }}" title="{{ entry.register.session.starts_at.strftime('%d %b') }}: {{ entry.status.value }}">{{ letter }}</span>
+        {% else %}<span class="muted">No lessons recorded yet.</span>{% endfor %}
+      </div>
+      <p class="small muted" style="margin-top:10px">P present · L late · A absent · E excused. Oldest on the left. Current run: <b>{{ student.consecutive_absences or 0 }}</b> consecutive absence{{ '' if student.consecutive_absences == 1 else 's' }}.</p>
+    </div>
+
+    <div class="grid two">
+      <div class="card">
+        <h2>Feedback this month</h2>
+        {% for f in feedback %}
+          <p>{{ ui.stars(f.rating) }} &nbsp;{{ f.teacher.full_name }}{% if f.comment %}<span class="small muted"><br>“{{ f.comment }}”</span>{% endif %}</p>
+        {% else %}<p class="muted">No feedback given this month.</p>{% endfor %}
+        <p class="small muted">Visible to management only. Teachers see averages, never names.</p>
+      </div>
+      <div class="card">
+        <h2>Contact and tuition</h2>
+        <dl class="kv" style="margin:0">
+          <dt>Parent</dt><dd>{{ student.parent_name }}</dd>
+          <dt>Phone</dt><dd>{{ student.parent_phone }}</dd>
+          <dt>Monthly fee</dt><dd>{{ student.monthly_fee|money }}</dd>
+          <dt>Outstanding</dt><dd>{% if student.tuition_debt %}<span class="chip warn plain">{{ student.tuition_debt|money }}</span>{% else %}None{% endif %}</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Reported circumstances</h2>
+      {% for c in circumstances %}
+        <p><span class="chip plain">{{ c.kind.value }}</span> <span class="muted small">{{ c.recorded_on.strftime('%d %b %Y') }}</span><br>{{ c.note }}</p>
+      {% else %}<p class="muted">Nothing reported by the student or parents.</p>{% endfor %}
+      {% if current_user.can('record_circumstance') and student.is_active %}
+        <form method="post" action="{{ url_for('risk.circumstance', student_id=student.id) }}" style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px">
+          <div class="inline-form">
+            <select name="kind">{% for k in kinds %}<option value="{{ k.name }}">{{ k.value }}</option>{% endfor %}</select>
+            <input name="note" placeholder="What did the student or parent report?" required style="flex:1;min-width:220px">
+            <button class="btn">Record</button>
+          </div>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="stack">
+    {% for alert in alerts %}
+      <div class="card">
+        <div class="card-head"><h2>Alert</h2>{{ ui.alert_chip(alert.status) }}<span class="spacer"></span><span class="small muted">opened {{ alert.opened_at.strftime('%d %b, %H:%M') }}</span></div>
+        {% for reason in alert.reason_list %}<p>• {{ reason }}</p>{% endfor %}
+        {% for action in alert.actions %}
+          <div class="banner {{ 'crit' if action.is_overdue(today) else 'info' }}" style="margin:10px 0 0">
+            <span><b>{{ action.description }}</b><br><span class="small">{{ action.assignee.full_name }} · due {{ action.due_date.strftime('%d %b') }}{% if action.done %} · done{% elif action.is_overdue(today) %} · <b>overdue</b>{% endif %}</span></span>
+          </div>
+        {% endfor %}
+        {% if alert.is_open and current_user.can('manage_alerts') %}
+          <form method="post" action="{{ url_for('risk.follow_up', alert_id=alert.id) }}" style="margin-top:14px">
+            <h3>Assign a follow-up action</h3>
+            <label class="field">Action<input name="description" placeholder="e.g. Call the parent, add support sessions" required></label>
+            <div class="grid two" style="gap:10px">
+              <label class="field">Responsible<select name="assignee_id">{% for person in assignees %}<option value="{{ person.id }}">{{ person.full_name }} – {{ person.role_label }}</option>{% endfor %}</select></label>
+              <label class="field">Due date<input type="date" name="due_date" required></label>
+            </div>
+            <button class="btn">Assign follow-up</button>
+          </form>
+          <form method="post" action="{{ url_for('risk.close', alert_id=alert.id) }}" style="margin-top:14px;border-top:1px solid var(--line);padding-top:14px">
+            <h3>Close the alert</h3>
+            <div class="inline-form">
+              <button class="btn ghost" name="outcome" value="resolved">Resolved – student returned</button>
+            </div>
+            <div class="inline-form" style="margin-top:8px">
+              <select name="reason">{% for r in reasons %}<option value="{{ r.name }}">{{ r.value }}</option>{% endfor %}</select>
+              <button class="btn danger" name="outcome" value="withdrawn">Student has left – record withdrawal</button>
+            </div>
+          </form>
+        {% elif alert.closed_at %}
+          <p class="small muted" style="margin-top:10px">Closed {{ alert.closed_at.strftime('%d %b %Y') }}.</p>
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="card"><h2>Alerts</h2><p class="muted">No alerts for this student.</p></div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

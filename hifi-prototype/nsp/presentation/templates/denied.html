@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Access denied{% endblock %}
+{% block content %}
+<div class="card" style="max-width:560px">
+  <h1 style="margin-bottom:8px">Access denied</h1>
+  <p>Your role (<b>{{ current_user.role_label }}</b>) does not have access to this page.</p>
+  <p class="muted small">Teachers see only their own groups, work sessions and KPI. Dashboards for all teachers and students are limited to the Director, Head Specialist and Administrator.</p>
+  <a class="btn" href="{{ url_for('auth.index') }}">Back to my home page</a>
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}Teacher feedback{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Feedback on my teachers · {{ month|month_label }}</h1><div class="sub">One rating per teacher each month. Teachers only ever see the average, never who said what.</div></div>
+</div>
+<div class="grid two">
+  {% for teacher in teachers %}
+    <div class="card">
+      <div class="person" style="margin-bottom:12px"><span class="avatar">{{ teacher.initials }}</span><span><b>{{ teacher.full_name }}</b><span class="sub muted small" style="display:block">{{ teacher.role_label }} · {{ teacher.subject.value }}</span></span></div>
+      {% if teacher.id in given %}
+        <p>{{ ui.stars(given[teacher.id].rating) }} <span class="chip good">Feedback given</span></p>
+        {% if given[teacher.id].comment %}<p class="muted small">“{{ given[teacher.id].comment }}”</p>{% endif %}
+      {% else %}
+        <form method="post" action="{{ url_for('risk.give_feedback') }}">
+          <input type="hidden" name="teacher_id" value="{{ teacher.id }}">
+          <label class="field">Rating
+            <span class="seg" style="display:flex;margin-top:4px">
+              {% for stars in range(1, 6) %}<label class="PRESENT" style="flex:1;text-align:center"><input type="radio" name="rating" value="{{ stars }}" required><span>{{ stars }} ★</span></label>{% endfor %}
+            </span>
+          </label>
+          <label class="field">Comment (optional)<textarea name="comment" rows="2" placeholder="What works well? What could be better?"></textarea></label>
+          <button class="btn">Send feedback</button>
+        </form>
+      {% endif %}
+    </div>
+  {% else %}
+    <div class="card"><p class="muted">You have no teachers assigned yet.</p></div>
+  {% endfor %}
+</div>
+{% endblock %}

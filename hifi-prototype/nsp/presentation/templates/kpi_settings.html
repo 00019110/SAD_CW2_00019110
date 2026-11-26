@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}KPI weights & ratings{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>KPI weights &amp; ratings</h1><div class="sub">Set how much each indicator contributes, rate each teacher for the month and verify achievements.</div></div>
+</div>
+
+<div class="grid two">
+  <div class="card">
+    <h2>Indicator weights</h2>
+    <p class="muted small">Weights must total exactly 100%. Changes apply from <b>{{ next_month|month_label }}</b> and never alter past results.</p>
+    <form method="post" action="{{ url_for('kpi.save_weights') }}" id="weights">
+      <table>
+        <thead><tr><th>Indicator</th><th class="right">Now ({{ month|month_label }})</th><th class="right">From {{ next_month|month_label }}</th></tr></thead>
+        <tbody>
+        {% for i in indicators %}
+          {% set now_value = current.weight_for(i.code) if current else 0 %}
+          <tr>
+            <td><b>{{ i.label }}</b></td>
+            <td class="right num">{{ now_value }}%</td>
+            <td class="right"><input class="num weight" type="number" min="0" max="100" name="weight_{{ i.code }}" value="{{ pending.weight_for(i.code) if pending else now_value }}" style="width:76px;text-align:right"> %</td>
+          </tr>
+        {% endfor %}
+          <tr><td colspan="2" class="right"><b>Total</b></td><td class="right"><b class="num" id="total">100</b> % <span class="chip good" id="total-chip">OK</span></td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:14px"><button class="btn">Save weights</button> {% if pending %}<span class="small muted">New weights are already saved for {{ next_month|month_label }}.</span>{% endif %}</p>
+    </form>
+  </div>
+
+  <div class="card flush" id="achievements">
+    <h2>Achievements awaiting verification</h2>
+    <table>
+      <thead><tr><th>Teacher</th><th>Achievement</th><th class="right">Points</th><th></th></tr></thead>
+      <tbody>
+      {% for a in unverified %}
+        <tr>
+          <td><b>{{ a.teacher.full_name }}</b></td><td>{{ a.title }}<span class="sub">{{ a.achieved_on.strftime('%d %b %Y') }}</span></td><td class="right num">{{ a.points }}</td>
+          <td class="right"><form method="post" action="{{ url_for('kpi.verify', achievement_id=a.id) }}"><button class="btn small">Verify</button></form></td>
+        </tr>
+      {% else %}<tr><td colspan="4" class="empty">Nothing waiting for verification.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card flush" id="ratings" style="margin-top:18px">
+  <h2>Monthly rating · {{ month|month_label }}</h2>
+  <table>
+    <thead><tr><th>Teacher</th><th>Subject · role</th><th>Rating (0–10)</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for t in teachers %}
+      {% set r = ratings[t.id] %}
+      <tr>
+        <td><a href="{{ url_for('kpi.teacher', teacher_id=t.id) }}"><b>{{ t.full_name }}</b></a></td>
+        <td>{{ t.subject.value }} · {{ t.role_label }}</td>
+        <td><form class="inline-form" method="post" action="{{ url_for('kpi.rate', teacher_id=t.id) }}">
+          <input class="num" type="number" name="rating" step="0.5" value="{{ '%g'|format(r.rating) if r else '' }}" placeholder="0–10" style="width:86px" required>
+          <button class="btn small ghost">Save</button></form></td>
+        <td>{% if r %}<span class="chip good">Rated</span>{% else %}<span class="chip warn">Not rated – KPI stays provisional</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+<script>
+  // Live total so the Head Specialist sees at once whether the weights add up to 100%.
+  const inputs = document.querySelectorAll('.weight'), total = document.getElementById('total'), chip = document.getElementById('total-chip');
+  function update() {
+    const sum = [...inputs].reduce((s, i) => s + (parseInt(i.value) || 0), 0);
+    total.textContent = sum;
+    chip.textContent = sum === 100 ? 'OK' : (sum < 100 ? (100 - sum) + '% missing' : (sum - 100) + '% too much');
+    chip.className = 'chip ' + (sum === 100 ? 'good' : 'crit');
+  }
+  inputs.forEach(i => i.addEventListener('input', update)); update();
+</script>
+{% endblock %}

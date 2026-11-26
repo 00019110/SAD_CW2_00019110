@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}Teacher KPI{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Teacher KPI Dashboard</h1><div class="sub">Seven indicators, each scored 0–100 and combined with the Head Specialist's weights.</div></div>
+  <div class="actions">
+    <form class="filters" method="get">
+      {{ ui.month_filter(months, month) }}
+      <select name="subject" onchange="this.form.submit()">
+        <option value="">All subjects</option>
+        {% for s in subjects %}<option value="{{ s.name }}" {{ 'selected' if subject == s }}>{{ s.value }}</option>{% endfor %}
+      </select>
+      <select name="role" onchange="this.form.submit()">
+        <option value="">Main and support</option>
+        <option value="main_teacher" {{ 'selected' if role == 'main_teacher' }}>Main teachers</option>
+        <option value="support_teacher" {{ 'selected' if role == 'support_teacher' }}>Support teachers</option>
+      </select>
+    </form>
+    <a class="btn ghost" href="{{ url_for('kpi.export', **request.args) }}">Export to Excel (CSV)</a>
+  </div>
+</div>
+
+{% if problem %}
+  <div class="banner crit"><span><b>KPI cannot be calculated.</b> {{ problem }} The Head Specialist must complete the KPI weights.</span></div>
+{% else %}
+{% set scored = ranking|selectattr('overall')|list %}
+<div class="tiles">
+  <div class="tile accent"><div class="label">Average KPI</div><div class="value">{{ '%.1f'|format(scored|sum(attribute='overall') / scored|length) if scored else '–' }}</div><div class="note">{{ ranking|length }} teachers · {{ month|month_label }}</div></div>
+  {% if scored %}
+  <div class="tile good"><div class="label">Highest</div><div class="value">{{ scored[0].overall }}</div><div class="note">{{ scored[0].teacher.full_name }}</div></div>
+  <div class="tile warn"><div class="label">Lowest</div><div class="value">{{ scored[-1].overall }}</div><div class="note">{{ scored[-1].teacher.full_name }}</div></div>
+  {% endif %}
+  <div class="tile"><div class="label">Status</div><div class="value" style="font-size:20px;padding:6px 0">{{ ranking[0].status if ranking else '–' }}</div><div class="note">{{ 'month still running – not saved' if ranking and ranking[0].provisional else 'locked monthly snapshot' }}</div></div>
+</div>
+
+<div class="card flush">
+  <table class="dense">
+    <thead>
+      <tr><th></th><th>Teacher</th>
+        {% for i in indicators %}<th class="right" title="{{ i.label }}">{{ i.short }}<br><span style="font-weight:400;text-transform:none;letter-spacing:0">{{ weights.weight_for(i.code) if weights else 0 }}%</span></th>{% endfor %}
+        <th style="width:130px">Overall KPI</th><th class="right">vs last<br>month</th><th>Indicators</th></tr>
+    </thead>
+    <tbody>
+    {% for result in ranking %}
+      <tr>
+        <td class="rank">{{ loop.index }}</td>
+        <td class="name"><a href="{{ url_for('kpi.teacher', teacher_id=result.teacher.id, month=month) }}"><b>{{ result.teacher.full_name }}</b></a><span class="sub">{{ result.teacher.subject.value }} · {{ result.teacher.role_label }}</span></td>
+        {% for item in result.indicators %}
+          <td class="right num" title="{{ item.label }}{% if item.note %} – {{ item.note }}{% endif %}">{% if item.score is none %}<span class="muted">–</span>{% else %}{{ '%.0f'|format(item.score) }}{% endif %}</td>
+        {% endfor %}
+        <td><div class="meter-row">{{ ui.meter(result.overall) }}<b class="num right">{{ result.overall if result.overall is not none else '–' }}</b></div></td>
+        <td class="right">{{ ui.delta(result.change) }}</td>
+        <td class="nowrap">{% if result.indicator('rating') and result.indicator('rating').score is none %}<span class="chip warn plain">No rating yet</span>{% elif result.partial %}<span class="chip plain">Partial</span>{% else %}<span class="chip good plain">All 7</span>{% endif %}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="12" class="empty">No teachers match this filter.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="small muted">“–” means the indicator does not apply or has too little data (for example, support teachers have no mock-exam groups, or fewer than five feedback responses). Its weight is shared among the other indicators and the score is marked <b>Partial</b>. Scores stay <b>Provisional</b> until the month ends and the Head Specialist's rating is entered.</p>
+{% endif %}
+{% endblock %}

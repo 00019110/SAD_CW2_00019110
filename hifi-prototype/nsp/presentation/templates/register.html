@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}Register · {{ lesson.group.name }}{% endblock %}
+{% block crumb %}<a href="{{ url_for('auth.today') }}">Today</a> / Lesson register{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ lesson.group.name }} · lesson register</h1>
+    <div class="sub">{{ lesson.group.subject.value }} · {{ lesson.group.level }} · {{ lesson.room.name }} · {{ lesson.starts_at.strftime('%a %d %b, %H:%M') }} – {{ lesson.ends_at.strftime('%H:%M') }}</div>
+  </div>
+  <div class="actions">
+    {% if register.locked %}
+      <span class="chip good">Locked</span>
+      <span class="muted small">Submitted {{ register.submitted_at.strftime('%d %b, %H:%M') }} by {{ register.submitted_by.full_name }}{% if register.late_submission %} · <b>late submission</b>{% endif %}</span>
+    {% else %}
+      <span class="chip warn">Not submitted</span>
+    {% endif %}
+  </div>
+</div>
+
+{% for alert in new_alerts %}
+  <div class="banner crit"><span><b>Dropout risk alert raised: {{ alert.student.full_name }}</b> – {{ alert.reason_list|join('; ') }}. The Administrator and Head Specialist were notified.</span></div>
+{% endfor %}
+
+<div class="tiles">
+  <div class="tile good"><div class="label">Present</div><div class="value">{{ register.count(AttendanceStatus.PRESENT) }}</div></div>
+  <div class="tile warn"><div class="label">Late</div><div class="value">{{ register.count(AttendanceStatus.LATE) }}</div></div>
+  <div class="tile crit"><div class="label">Absent</div><div class="value">{{ register.count(AttendanceStatus.ABSENT) }}</div></div>
+  <div class="tile"><div class="label">Excused</div><div class="value">{{ register.count(AttendanceStatus.EXCUSED) }}</div></div>
+  {% if not register.locked %}<div class="tile accent"><div class="label">Not scanned</div><div class="value">{{ register.count(AttendanceStatus.NOT_SCANNED) }}</div><div class="note">need a status before you submit</div></div>{% endif %}
+</div>
+
+<form method="post" action="{{ url_for('register.save', session_id=lesson.id) }}">
+<div class="card flush">
+  <table>
+    <thead><tr><th>Student</th><th>QR scan</th><th>Status</th><th>Reason (excused absence)</th></tr></thead>
+    <tbody>
+    {% for entry in entries %}
+      {% set needs = entry.status == AttendanceStatus.NOT_SCANNED or entry.id in highlight %}
+      <tr class="{{ 'needs-status' if needs and not register.locked and highlight }}">
+        <td>
+          <div class="person"><span class="avatar">{{ entry.student.initials }}</span>
+            <span><b>{{ entry.student.full_name }}</b>
+            {% if entry.student.consecutive_absences %}<span class="sub"><span class="chip {{ 'crit' if entry.student.consecutive_absences >= 3 else 'warn' }} plain">{{ entry.student.consecutive_absences }} absence{{ 's' if entry.student.consecutive_absences > 1 }} in a row</span></span>{% endif %}</span>
+          </div>
+        </td>
+        <td>
+          {% if entry.scanned %}<span class="chip good">Scanned</span>
+          {% elif entry.teacher_override %}<span class="chip info">Teacher override</span>
+          {% else %}<span class="chip">Not scanned</span>{% endif %}
+        </td>
+        <td>
+          {% if register.locked %}
+            {{ ui.attendance_chip(entry.status) }}
+          {% else %}
+            <span class="seg">
+              {% for choice in choices %}
+                <label class="{{ choice.name }}"><input type="radio" name="status_{{ entry.id }}" value="{{ choice.name }}" {{ 'checked' if entry.status == choice }}><span>{{ 'Excused' if choice.name == 'EXCUSED' else choice.value }}</span></label>
+              {% endfor %}
+            </span>
+          {% endif %}
+        </td>
+        <td>
+          {% if register.locked %}<span class="muted">{{ entry.reason or '' }}</span>
+          {% else %}<input class="reason" name="reason_{{ entry.id }}" value="{{ entry.reason or '' }}" placeholder="e.g. illness reported by parent">{% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if not register.locked %}
+    <div class="sticky-actions">
+      <button class="btn" name="action" value="submit">Submit register</button>
+      <button class="btn ghost" name="action" value="save">Save without submitting</button>
+      <span class="muted small">Submitting locks the register. Later corrections need Head Specialist approval.</span>
+    </div>
+  {% endif %}
+</div>
+</form>
+{% endblock %}

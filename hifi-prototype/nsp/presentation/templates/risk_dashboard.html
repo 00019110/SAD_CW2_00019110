@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}Dropout risk{% endblock %}
+{% block content %}
+{% set f = data.filters %}
+<div class="page-head">
+  <div><h1>Dropout Risk Dashboard</h1><div class="sub">Risk scores are recalculated from attendance, feedback, reported circumstances and tuition balances each time this page opens.{% if last_sync %} EduTizim data last synced {{ last_sync.strftime('%d %b, %H:%M') }}.{% endif %}</div></div>
+  <div class="actions"><a class="btn ghost" href="{{ url_for('risk.export', **request.args) }}">Export to Excel (CSV)</a></div>
+</div>
+
+<div class="tiles">
+  <a class="tile crit" href="{{ url_for('risk.dashboard', level='HIGH') }}"><div class="label">High risk</div><div class="value">{{ data.counts[RiskLevel.HIGH] }}</div><div class="note">students</div></a>
+  <a class="tile warn" href="{{ url_for('risk.dashboard', level='MEDIUM') }}"><div class="label">Medium risk</div><div class="value">{{ data.counts[RiskLevel.MEDIUM] }}</div><div class="note">students</div></a>
+  <a class="tile good" href="{{ url_for('risk.dashboard', level='LOW') }}"><div class="label">Low risk</div><div class="value">{{ data.counts[RiskLevel.LOW] }}</div><div class="note">students</div></a>
+  <div class="tile"><div class="label">Open alerts</div><div class="value">{{ data.open_alerts|length }}</div><div class="note">{{ data.overdue_actions }} follow-up{{ '' if data.overdue_actions == 1 else 's' }} overdue</div></div>
+  <div class="tile accent"><div class="label">Dropout rate · {{ month|month_label }}</div><div class="value">{{ overall.dropout_rate if overall.dropout_rate is not none else '–' }}%</div><div class="note">{{ overall.left }} left of {{ overall.at_start }}</div></div>
+</div>
+
+<div class="grid two">
+  <div class="card">
+    <h2>Monthly dropout rate – last 6 months</h2>
+    {{ ui.columns(trend) }}
+  </div>
+  <div class="card flush">
+    <h2>This month by subject</h2>
+    <table>
+      <thead><tr><th>Subject</th><th class="right">Active at start</th><th class="right">Left</th><th class="right">Dropout rate</th></tr></thead>
+      <tbody>
+      {% for row in by_subject %}
+        <tr><td><b>{{ row.label }}</b></td><td class="right num">{{ row.at_start }}</td><td class="right num">{{ row.left }}</td><td class="right num"><b>{{ row.dropout_rate if row.dropout_rate is not none else '–' }}%</b></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p class="small muted" style="padding:10px 20px 14px;margin:0">By group and by teacher: see <a href="{{ url_for('retention.dashboard') if current_user.can('view_retention') else '#' }}">Retention &amp; acquisition</a>.</p>
+  </div>
+</div>
+
+<div class="card flush" style="margin-top:18px">
+  <div class="card-head" style="padding-bottom:4px">
+    <h2>Students</h2><span class="muted small">{{ data.rows|length }} shown</span>
+    <span class="spacer"></span>
+    <form class="filters" method="get" style="padding-right:20px">
+      <select name="subject" onchange="this.form.submit()">
+        <option value="">All subjects</option>
+        {% for s in ['CHEMISTRY', 'BIOLOGY', 'ENGLISH'] %}<option value="{{ s }}" {{ 'selected' if f.subject and f.subject.name == s }}>{{ s|capitalize }}</option>{% endfor %}
+      </select>
+      <select name="group" onchange="this.form.submit()">
+        <option value="">All groups</option>
+        {% for g in groups %}<option value="{{ g.id }}" {{ 'selected' if f.group_id == g.id }}>{{ g.name }}</option>{% endfor %}
+      </select>
+      <select name="teacher" onchange="this.form.submit()">
+        <option value="">All teachers</option>
+        {% for t in teachers %}<option value="{{ t.id }}" {{ 'selected' if f.teacher_id == t.id }}>{{ t.full_name }}</option>{% endfor %}
+      </select>
+      <select name="level" onchange="this.form.submit()">
+        <option value="">All risk levels</option>
+        {% for l in RiskLevel %}<option value="{{ l.name }}" {{ 'selected' if f.level == l }}>{{ l.value }}</option>{% endfor %}
+      </select>
+      {% if request.args %}<a class="small" href="{{ url_for('risk.dashboard') }}">Clear</a>{% endif %}
+    </form>
+  </div>
+  <table>
+    <thead><tr><th>Student</th><th>Group · teacher</th><th>Risk level</th><th style="width:150px">Score</th><th>Risk factors</th><th>Alert</th><th></th></tr></thead>
+    <tbody>
+    {% for row in data.rows[:25] %}
+      {% set group = row.student.groups[0] if row.student.groups else none %}
+      <tr>
+        <td><div class="person"><span class="avatar">{{ row.student.initials }}</span><a href="{{ url_for('risk.student', student_id=row.student.id) }}"><b>{{ row.student.full_name }}</b></a></div></td>
+        <td>{% if group %}{{ group.name }}<span class="sub">{{ group.main_teacher.full_name }}</span>{% endif %}</td>
+        <td>{{ ui.risk_chip(row.level) }}</td>
+        <td>{% if row.score and row.level != RiskLevel.NOT_ENOUGH_DATA %}<div class="meter-row">{{ ui.meter(row.score.score, {'High': 'crit', 'Medium': 'warn', 'Low': 'good'}[row.level.value]) }}<span class="num right">{{ row.score.score }}</span></div>{% else %}<span class="muted small">enrolled &lt; 2 weeks</span>{% endif %}</td>
+        <td class="small">{{ row.score.factor_list|join(' · ') if row.score else '' }}</td>
+        <td>{% if row.alert %}{{ ui.alert_chip(row.alert.status) }}{% for action in row.alert.actions if action.is_overdue(today) %}<span class="sub" style="color:var(--crit-ink)">follow-up overdue</span>{% endfor %}{% endif %}</td>
+        <td class="right"><a class="btn small ghost" href="{{ url_for('risk.student', student_id=row.student.id) }}">Open</a></td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7" class="empty">No students match this filter. <a href="{{ url_for('risk.dashboard') }}">Clear the filter</a></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if data.rows|length > 25 %}<p class="small muted" style="padding:10px 20px;margin:0">Showing the 25 highest-risk students. Use the filters or export to see all {{ data.rows|length }}.</p>{% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}Workload report{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Workload Report</h1><div class="sub">Planned hours come from the EduTizim timetable; worked hours come from QR check-in and check-out. This replaces the Excel log.</div></div>
+  <div class="actions">
+    <form class="filters" method="get">
+      {{ ui.month_filter(months, month) }}
+      <select name="subject" onchange="this.form.submit()">
+        <option value="">All subjects</option>
+        {% for s in subjects %}<option value="{{ s.name }}" {{ 'selected' if subject == s }}>{{ s.value }}</option>{% endfor %}
+      </select>
+      <select name="role" onchange="this.form.submit()">
+        <option value="">Main and support</option>
+        <option value="main_teacher" {{ 'selected' if role == 'main_teacher' }}>Main teachers</option>
+        <option value="support_teacher" {{ 'selected' if role == 'support_teacher' }}>Support teachers</option>
+      </select>
+    </form>
+  </div>
+</div>
+<div class="tiles">
+  <div class="tile accent"><div class="label">Planned hours</div><div class="value">{{ totals.planned }}</div><div class="note">{{ month|month_label }}, to date</div></div>
+  <div class="tile good"><div class="label">Worked hours</div><div class="value">{{ totals.worked }}</div></div>
+  <div class="tile"><div class="label">Overtime</div><div class="value">{{ totals.overtime }} h</div><div class="note">confirmed check-outs only</div></div>
+  <div class="tile {{ 'warn' if totals.late else 'good' }}"><div class="label">Late arrivals</div><div class="value">{{ totals.late }}</div></div>
+  <div class="tile {{ 'crit' if totals.missing else 'good' }}"><div class="label">Missing check-outs</div><div class="value">{{ totals.missing }}</div><div class="note">excluded from overtime until confirmed</div></div>
+</div>
+<div class="card flush">
+  <table>
+    <thead><tr><th>Teacher</th><th class="right">Groups</th><th class="right">Lessons</th><th class="right">Support</th><th class="right">Planned h</th><th style="width:190px">Worked h</th><th class="right">Overtime</th><th class="right">Late</th><th class="right">Left early</th><th class="right">Missing check-out</th></tr></thead>
+    <tbody>
+    {% for row in rows %}
+      <tr>
+        <td><b>{{ row.teacher.full_name }}</b><span class="sub">{{ row.teacher.subject.value }} · {{ row.teacher.role_label }}</span></td>
+        <td class="right num">{{ row.groups }}</td>
+        <td class="right num">{{ row.lessons }}</td>
+        <td class="right num">{{ row.support_sessions }}</td>
+        <td class="right num">{{ row.planned_hours }}</td>
+        <td><div class="meter-row">{{ ui.meter(row.coverage, 'good' if row.coverage >= 98 else '') }}<span class="num right">{{ row.worked_hours }}</span></div></td>
+        <td class="right num">{{ row.overtime_minutes|minutes if row.overtime_minutes else '–' }}</td>
+        <td class="right num">{% if row.late_arrivals %}<span class="chip warn plain">{{ row.late_arrivals }} · {{ row.minutes_late }} min</span>{% else %}–{% endif %}</td>
+        <td class="right num">{{ row.early_departures or '–' }}</td>
+        <td class="right num">{% if row.missing_check_outs %}<span class="chip crit plain">{{ row.missing_check_outs }}</span>{% else %}–{% endif %}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="10" class="empty">No teachers match this filter.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="small muted">Work-session history starts with the module's first month of data; earlier months show timetable hours only.</p>
+{% endblock %}

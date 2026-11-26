@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}KPI · {{ teacher.full_name }}{% endblock %}
+{% block crumb %}{% if current_user.can('view_all_kpi') %}<a href="{{ url_for('kpi.dashboard', month=month) }}">Teacher KPI</a> / Teacher{% else %}My KPI{% endif %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div class="person"><span class="avatar" style="width:46px;height:46px;font-size:15px">{{ teacher.initials }}</span>
+    <div><h1>{{ teacher.full_name }}</h1><div class="sub">{{ teacher.role_label }} · {{ teacher.subject.value }} · {{ teacher.teaching_groups|map(attribute='name')|join(', ') }}</div></div>
+  </div>
+  <div class="actions">
+    <form class="filters" method="get">{{ ui.month_filter(months, month) }}</form>
+  </div>
+</div>
+
+<div class="tiles">
+  <div class="tile accent"><div class="label">Overall KPI · {{ month|month_label }}</div><div class="value">{{ result.overall if result.overall is not none else '–' }}</div><div class="note">{{ ui.kpi_status(result) }}</div></div>
+  <div class="tile"><div class="label">Change from last month</div><div class="value" style="font-size:22px;padding:5px 0">{{ ui.delta(result.change, ' pts') }}</div></div>
+  <div class="tile"><div class="label">Hours worked</div><div class="value">{{ workload.worked_hours }}</div><div class="note">of {{ workload.planned_hours }} planned · {{ workload.overtime_hours }} h overtime</div></div>
+  <div class="tile {{ 'warn' if workload.late_arrivals else 'good' }}"><div class="label">Late arrivals</div><div class="value">{{ workload.late_arrivals }}</div><div class="note">of {{ workload.lessons + workload.support_sessions }} sessions</div></div>
+</div>
+
+<div class="grid side">
+  <div class="card flush">
+    <h2>How the score is made up</h2>
+    <table>
+      <thead><tr><th>Indicator</th><th style="width:32%">Score (0–100)</th><th class="right">Weight</th><th class="right">Applied</th><th class="right">Points</th></tr></thead>
+      <tbody>
+      {% for item in result.indicators %}
+        <tr>
+          <td><b>{{ item.label }}</b>{% if item.note %}<span class="sub">{{ item.note }} – weight shared among the others</span>{% endif %}</td>
+          <td>{% if item.score is none %}<span class="muted">left out</span>{% else %}<div class="meter-row">{{ ui.meter(item.score) }}<span class="num right">{{ '%.1f'|format(item.score) }}</span></div>{% endif %}</td>
+          <td class="right num">{{ '%.0f'|format(item.weight) }}%</td>
+          <td class="right num">{{ '%.1f'|format(item.applied) }}%</td>
+          <td class="right num"><b>{{ '%.1f'|format(item.score * item.applied / 100) if item.score is not none else '–' }}</b></td>
+        </tr>
+      {% endfor %}
+        <tr><td colspan="4" class="right"><b>Overall KPI</b></td><td class="right num"><b>{{ result.overall if result.overall is not none else '–' }}</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card">
+    <h2>Overall KPI – last 6 months</h2>
+    {{ ui.trend_line(trend) }}
+  </div>
+</div>
+
+<div class="grid three" style="margin-top:18px">
+  <div class="card flush">
+    <h2>Retention per group</h2>
+    <table>
+      <thead><tr><th>Group</th><th class="right">At start</th><th class="right">Still active</th></tr></thead>
+      <tbody>
+      {% for name, at_start, kept in retention %}
+        <tr><td><b>{{ name }}</b></td><td class="right num">{{ at_start }}</td><td class="right num">{{ kept }}{% if at_start %} <span class="muted">({{ '%.0f'|format(100 * kept / at_start) }}%)</span>{% endif %}</td></tr>
+      {% else %}<tr><td colspan="3" class="empty">No groups.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card">
+    <h2>Student feedback</h2>
+    {% if feedback %}
+      {% set average = feedback|sum(attribute='rating') / feedback|length %}
+      <p><b style="font-size:24px">{{ '%.1f'|format(average) }}</b> <span class="muted">/ 5 · {{ feedback|length }} responses</span></p>
+      {% for count in distribution %}
+        <div class="meter-row" style="grid-template-columns:34px 1fr 26px;margin-bottom:5px"><span class="small muted">{{ 5 - loop.index0 }} ★</span>{{ ui.meter(100 * count / feedback|length) }}<span class="small num right">{{ count }}</span></div>
+      {% endfor %}
+      {% for comment in comments %}<p class="small muted" style="margin:8px 0 0">“{{ comment }}”</p>{% endfor %}
+    {% else %}<p class="muted">No feedback yet this month.</p>{% endif %}
+    <p class="small muted" style="margin-top:10px">Anonymous: only the average and comments are shown.</p>
+  </div>
+  <div class="card">
+    <h2>Professional achievements</h2>
+    {% for a in achievements %}
+      <p><b>{{ a.title }}</b><br><span class="small muted">{{ a.achieved_on.strftime('%b %Y') }} · {{ a.points }} points</span> {% if a.verified %}<span class="chip good">Verified</span>{% else %}<span class="chip warn">Awaiting verification</span>{% endif %}</p>
+    {% else %}<p class="muted">No achievements recorded.</p>{% endfor %}
+    <p class="small muted">An achievement counts only after the Head Specialist has verified it.</p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}Today{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Today's sessions</h1><div class="sub">Scan the room QR code when you arrive and when you leave. The register is filled in from student scans.</div></div>
+  <div class="actions"><a class="btn" href="{{ url_for('attendance.scan') }}">Scan room QR</a></div>
+</div>
+<div class="card flush">
+  <table>
+    <thead><tr><th>Time</th><th>Session</th><th>Room</th><th>My attendance</th><th>Register</th><th></th></tr></thead>
+    <tbody>
+    {% for row in rows %}
+      {% set s = row.session %}
+      <tr>
+        <td class="nowrap num"><b>{{ s.starts_at.strftime('%H:%M') }}</b> – {{ s.ends_at.strftime('%H:%M') }}
+          <span class="sub">{% if row.state == 'live' %}<span class="chip info">In progress</span>{% elif row.state == 'upcoming' %}Upcoming{% else %}Ended{% endif %}</span></td>
+        <td><b>{{ s.group.name }}</b> · {{ s.kind_label }}<span class="sub">{{ s.group.subject.value }} · {{ s.group.level }} · {{ s.group.active_students|length }} students</span></td>
+        <td>{{ s.room.name }}</td>
+        <td>{{ ui.work_chip(row.work) }}
+          {% if row.work %}<span class="sub">In {{ row.work.check_in_at.strftime('%H:%M') }}{% if row.work.minutes_late %} · {{ row.work.minutes_late }} min late{% endif %}{% if row.work.check_out_at %} · out {{ row.work.check_out_at.strftime('%H:%M') }}{% endif %}{% if row.work.overtime_minutes %} · {{ row.work.overtime_minutes }} min overtime{% endif %}</span>{% endif %}</td>
+        <td>
+          {% if not s.has_register %}<span class="muted">Not needed</span>
+          {% elif row.register and row.register.locked %}<span class="chip good">Submitted</span><span class="sub">{{ row.register.submitted_at.strftime('%H:%M') }}</span>
+          {% elif row.state == 'upcoming' %}<span class="muted">–</span>
+          {% else %}<span class="chip warn">Not submitted</span>{% endif %}
+        </td>
+        <td class="right nowrap">
+          {% if not row.work and row.window %}<a class="btn small" href="{{ url_for('attendance.scan', room=s.room_id) }}">Check in</a>{% endif %}
+          {% if row.work and row.work.status.value == 'Open' %}<a class="btn small ghost" href="{{ url_for('attendance.scan', room=s.room_id) }}">Check out</a>{% endif %}
+          {% if s.has_register and row.state != 'upcoming' %}<a class="btn small {{ 'ghost' if row.register and row.register.locked }}" href="{{ url_for('register.show', session_id=s.id) }}">{{ 'View register' if row.register and row.register.locked else 'Open register' }}</a>{% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="6" class="empty">You have no sessions today.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

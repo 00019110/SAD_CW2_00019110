@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Room QR screens{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Room QR screens</h1><div class="sub">Each classroom has a screen showing a code that changes every 60 seconds. Open a screen on the room's tablet.</div></div>
+</div>
+<div class="tiles">
+  {% for room in rooms %}
+    <a class="tile accent" href="{{ url_for('attendance.room_display', room_id=room.id) }}" target="_blank">
+      <div class="label">Classroom</div>
+      <div class="value">{{ room.name }}</div>
+      <div class="note">Open QR screen ↗</div>
+    </a>
+  {% endfor %}
+</div>
+{% endblock %}

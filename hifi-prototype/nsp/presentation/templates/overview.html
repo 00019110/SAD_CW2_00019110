@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}Overview{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Overview · {{ month|month_label }}</h1><div class="sub">Student retention, teacher performance and workload in one place.</div></div>
+</div>
+<div class="tiles">
+  <a class="tile crit" href="{{ url_for('risk.dashboard', level='HIGH') }}"><div class="label">High dropout risk</div><div class="value">{{ risk.counts[RiskLevel.HIGH] }}</div><div class="note">of {{ risk.total_students }} active students</div></a>
+  <a class="tile warn" href="{{ url_for('risk.dashboard') }}"><div class="label">Open alerts</div><div class="value">{{ risk.open_alerts|length }}</div><div class="note">{{ risk.overdue_actions }} follow-up{{ '' if risk.overdue_actions == 1 else 's' }} overdue</div></a>
+  <a class="tile accent" href="{{ url_for('retention.dashboard') }}"><div class="label">Dropout rate this month</div><div class="value">{{ retention.dropout_rate if retention.dropout_rate is not none else '–' }}%</div><div class="note">{{ retention.left }} of {{ retention.at_start }} students left</div></a>
+  <a class="tile good" href="{{ url_for('kpi.dashboard') }}"><div class="label">Average teacher KPI</div><div class="value">{{ average_kpi if average_kpi is not none else '–' }}</div><div class="note">provisional, month to date</div></a>
+</div>
+<div class="grid two">
+  <div class="card flush">
+    <div class="card-head"><h2>Students most at risk</h2><span class="spacer"></span><a class="small" href="{{ url_for('risk.dashboard') }}" style="padding-right:20px">Dropout risk dashboard →</a></div>
+    <table>
+      <thead><tr><th>Student</th><th>Risk</th><th>Main reason</th></tr></thead>
+      <tbody>
+      {% for row in high %}
+        <tr>
+          <td><a href="{{ url_for('risk.student', student_id=row.student.id) }}"><b>{{ row.student.full_name }}</b></a><span class="sub">{{ row.student.groups[0].name if row.student.groups }}</span></td>
+          <td>{{ ui.risk_chip(row.level) }} <span class="num muted">{{ row.score.score }}</span></td>
+          <td class="small">{{ row.score.factor_list[0] if row.score.factor_list }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="3" class="empty">No student is at high risk.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card">
+    <h2>Monthly dropout rate</h2>
+    <p class="muted small">Students who left ÷ students active at the start of the month.</p>
+    {{ ui.columns(trend) }}
+  </div>
+</div>
+<div class="card flush" style="margin-top:18px">
+  <div class="card-head"><h2>Teacher KPI – top and bottom</h2><span class="spacer"></span><a class="small" href="{{ url_for('kpi.dashboard') }}" style="padding-right:20px">Teacher KPI dashboard →</a></div>
+  <table>
+    <thead><tr><th></th><th>Teacher</th><th>Subject</th><th style="width:34%">Overall KPI</th><th class="right">Change</th></tr></thead>
+    <tbody>
+    {% for result in ranking[:3] + ranking[-2:] %}
+      <tr>
+        <td class="rank">{{ ranking.index(result) + 1 }}</td>
+        <td><a href="{{ url_for('kpi.teacher', teacher_id=result.teacher.id) }}"><b>{{ result.teacher.full_name }}</b></a><span class="sub">{{ result.teacher.role_label }}</span></td>
+        <td>{{ result.teacher.subject.value }}</td>
+        <td><div class="meter-row">{{ ui.meter(result.overall) }}<b class="num right">{{ result.overall }}</b></div></td>
+        <td class="right">{{ ui.delta(result.change) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

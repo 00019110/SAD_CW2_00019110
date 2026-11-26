@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}Attendance exceptions{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Attendance exceptions</h1><div class="sub">Everything the QR scan could not settle by itself: missing check-outs, registers not submitted and manual confirmation.</div></div>
+</div>
+
+<div class="tiles">
+  <div class="tile {{ 'crit' if flagged else 'good' }}"><div class="label">Missing check-outs</div><div class="value">{{ flagged|length }}</div><div class="note">closed at the planned end, waiting for you</div></div>
+  <div class="tile {{ 'warn' if unsubmitted else 'good' }}"><div class="label">Registers not submitted</div><div class="value">{{ unsubmitted|length }}</div><div class="note">lessons that have already ended</div></div>
+</div>
+
+<div class="card flush">
+  <h2>Missing check-outs</h2>
+  <table>
+    <thead><tr><th>Teacher</th><th>Session</th><th>Checked in</th><th>Planned end</th><th>Confirm or correct the check-out</th></tr></thead>
+    <tbody>
+    {% for work in flagged %}
+      <tr>
+        <td><b>{{ work.teacher.full_name }}</b><span class="sub">{{ work.teacher.role_label }}</span></td>
+        <td>{{ work.session.group.name }} · {{ work.session.room.name }}<span class="sub">{{ work.session.starts_at.strftime('%d %b') }}</span></td>
+        <td class="num">{{ work.check_in_at.strftime('%H:%M') }}</td>
+        <td class="num">{{ work.session.ends_at.strftime('%H:%M') }} <span class="chip crit">Missing check-out</span></td>
+        <td>
+          <form class="inline-form" method="post" action="{{ url_for('attendance.correct_work_session', work_session_id=work.id) }}">
+            <input type="time" name="check_out" value="{{ work.session.ends_at.strftime('%H:%M') }}" required>
+            <input name="reason" placeholder="Reason (required)" required style="min-width:210px">
+            <button class="btn small">Confirm</button>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="empty">No missing check-outs.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="grid two">
+  <div class="card flush">
+    <h2>Registers not submitted</h2>
+    <table>
+      <thead><tr><th>Lesson</th><th>Teacher</th><th>Ended</th></tr></thead>
+      <tbody>
+      {% for lesson in unsubmitted %}
+        <tr><td><b>{{ lesson.group.name }}</b> · {{ lesson.room.name }}</td><td>{{ lesson.teacher.full_name }}</td><td class="num">{{ lesson.ends_at.strftime('%d %b, %H:%M') }}</td></tr>
+      {% else %}
+        <tr><td colspan="3" class="empty">Every finished lesson has a register.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Confirm attendance manually</h2>
+    <p class="muted small">Use when a scan failed three times, or the person has no phone or internet. The record is saved with method “Manual”, your name and the reason.</p>
+    <form method="get" action="{{ url_for('attendance.exceptions') }}">
+      <label class="field">Session
+        <select name="session" onchange="this.form.submit()">
+          <option value="">Choose a session…</option>
+          {% for s in todays|reverse %}<option value="{{ s.id }}" {{ 'selected' if chosen and chosen.id == s.id }}>{{ s.starts_at.strftime('%H:%M') }} · {{ s.group.name }} · {{ s.room.name }} · {{ s.teacher.full_name }}</option>{% endfor %}
+        </select>
+      </label>
+    </form>
+    {% if chosen %}
+      <form method="post" action="{{ url_for('attendance.manual_confirmation') }}">
+        <input type="hidden" name="session_id" value="{{ chosen.id }}">
+        <label class="field">Person not yet checked in
+          <select name="user_id" required>
+            {% for person in people %}<option value="{{ person.id }}">{{ person.full_name }} – {{ person.role_label }}</option>{% endfor %}
+          </select>
+        </label>
+        <label class="field">Reason (required)
+          <input name="reason" placeholder="e.g. phone battery flat, scan failed 3 times" required>
+        </label>
+        <button class="btn">Confirm attendance</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

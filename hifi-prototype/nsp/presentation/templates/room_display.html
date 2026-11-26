@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ room.name }} · QR screen</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="plain-page">
+  <div class="room-screen">
+    <div style="opacity:.7;letter-spacing:.12em;text-transform:uppercase;font-size:13px">NSP Learning Centre</div>
+    <h1>{{ room.name }}</h1>
+    <div style="font-size:18px;opacity:.85">Scan with the EduTizim app to check in or out</div>
+    <div class="qr" id="qr"></div>
+    <div class="countdown"><i id="bar" style="width:100%"></i></div>
+    <div style="opacity:.75">New code in <b id="left">60</b> s · an old photo of this code will not work</div>
+  </div>
+</div>
+<script>
+  // The tablet at the classroom door: fetch the current code and count down to the next one.
+  const qr = document.getElementById('qr'), bar = document.getElementById('bar'), left = document.getElementById('left');
+  let token = null, seconds = 60;
+  async function refresh() {
+    const data = await (await fetch("{{ url_for('attendance.room_code', room_id=room.id) }}")).json();
+    seconds = data.seconds_left;
+    if (data.token !== token) { token = data.token; qr.innerHTML = data.svg; }
+  }
+  function tick() {
+    seconds = Math.max(0, seconds - 1);
+    left.textContent = seconds;
+    bar.style.width = (seconds / 60 * 100) + '%';
+    if (seconds === 0 || seconds % 10 === 0) refresh();
+  }
+  refresh(); setInterval(tick, 1000);
+</script>
+</body>
+</html>

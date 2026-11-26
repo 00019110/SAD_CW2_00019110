@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}Retention & acquisition{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Retention &amp; acquisition cost</h1><div class="sub">Of the students active at the start of the month, how many were still active at the end – and what each new student cost to attract.</div></div>
+  <div class="actions"><form class="filters" method="get">{{ ui.month_filter(months, month) }}</form></div>
+</div>
+<div class="tiles">
+  <div class="tile good"><div class="label">Retention · {{ month|month_label }}</div><div class="value">{{ overall.retention_rate if overall.retention_rate is not none else '–' }}%</div><div class="note">{{ overall.kept }} of {{ overall.at_start }} students kept</div></div>
+  <div class="tile accent"><div class="label">Dropout rate</div><div class="value">{{ overall.dropout_rate if overall.dropout_rate is not none else '–' }}%</div><div class="note">{{ overall.left }} students left</div></div>
+  {% for row in acquisition %}
+    <div class="tile"><div class="label">Cost per new {{ row.subject.value }} student</div><div class="value" style="font-size:21px;padding:5px 0">{{ row.cost_per_student|money if row.cost_per_student is not none else 'No enrolments' }}</div><div class="note">{{ row.new_students }} new · {{ row.spend|money }} spent</div></div>
+  {% endfor %}
+</div>
+
+<div class="grid two">
+  <div class="card flush">
+    <h2>Retention per teacher</h2>
+    <table>
+      <thead><tr><th>Teacher</th><th class="right">At start</th><th class="right">Left</th><th style="width:38%">Retention</th></tr></thead>
+      <tbody>
+      {% for row in by_teacher %}
+        <tr><td><b>{{ row.label }}</b><span class="sub">{{ row.subject }}</span></td><td class="right num">{{ row.at_start }}</td><td class="right num">{{ row.left or '–' }}</td>
+          <td>{% if row.retention_rate is not none %}<div class="meter-row">{{ ui.meter(row.retention_rate, 'good' if row.retention_rate >= 97 else ('warn' if row.retention_rate < 92 else '')) }}<span class="num right">{{ row.retention_rate }}%</span></div>{% else %}<span class="muted">–</span>{% endif %}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="stack">
+    <div class="card">
+      <h2>Monthly dropout rate – last 6 months</h2>
+      {{ ui.columns(trend) }}
+    </div>
+    <div class="card flush">
+      <h2>Acquisition cost by subject · {{ month|month_label }}</h2>
+      <table>
+        <thead><tr><th>Subject</th><th class="right">Marketing spend</th><th class="right">New students</th><th class="right">Cost per student</th></tr></thead>
+        <tbody>
+        {% for row in acquisition %}
+          <tr><td><b>{{ row.subject.value }}</b></td><td class="right num">{{ row.spend|money }}</td><td class="right num">{{ row.new_students }}</td><td class="right num"><b>{{ row.cost_per_student|money if row.cost_per_student is not none else 'No enrolments' }}</b></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="card flush">
+      <h2>Recent withdrawals</h2>
+      <table>
+        <thead><tr><th>Student</th><th>Date</th><th>Reason</th></tr></thead>
+        <tbody>
+        {% for w in withdrawals %}
+          <tr><td>{{ w.student.full_name }}<span class="sub">{{ w.student.groups[0].name if w.student.groups }}</span></td><td class="num nowrap">{{ w.withdrawn_on.strftime('%d %b %Y') }}</td><td><span class="chip plain">{{ w.reason.value }}</span></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card flush" style="margin-top:18px">
+  <h2>Retention per group</h2>
+  <table>
+    <thead><tr><th>Group</th><th>Subject</th><th class="right">At start</th><th class="right">Left</th><th class="right">Retention</th></tr></thead>
+    <tbody>
+    {% for row in by_group %}
+      <tr><td><b>{{ row.label }}</b></td><td>{{ row.subject }}</td><td class="right num">{{ row.at_start }}</td><td class="right num">{{ row.left or '–' }}</td><td class="right num">{{ row.retention_rate if row.retention_rate is not none else '–' }}%</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

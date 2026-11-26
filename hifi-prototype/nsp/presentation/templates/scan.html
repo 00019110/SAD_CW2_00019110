@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Scan room QR{% endblock %}
+{% block content %}
+<div class="phone">
+  <h2>Scan attendance</h2>
+  <p class="muted small" style="text-align:center">Point the camera at the code on the screen by the classroom door.</p>
+  <form method="post" action="{{ url_for('attendance.scan_submit') }}">
+    <div class="viewfinder"><span>Camera preview<br><span class="small">In this prototype, choose the room whose screen you are scanning.</span></span></div>
+    <label class="field">Room screen in front of the camera
+      <select name="room_id" required>
+        {% for room in rooms %}<option value="{{ room.id }}" {{ 'selected' if room.id == chosen }}>{{ room.name }}</option>{% endfor %}
+      </select>
+    </label>
+    {% if open_session %}
+      <div class="banner info"><span>You are checked in to <b>{{ open_session.session.group.name }}</b> in {{ open_session.session.room.name }} since {{ open_session.check_in_at.strftime('%H:%M') }}.</span></div>
+      <button class="btn big" name="action" value="check_out">Scan to check out</button>
+      <p style="margin-top:8px"><button class="btn big ghost" name="action" value="check_in">Scan to check in</button></p>
+    {% else %}
+      <button class="btn big" name="action" value="check_in">Scan to check in</button>
+    {% endif %}
+    <div class="demo-links">
+      Demo only – show a rejected scan:
+      <button name="simulate" value="old_photo">scan an old photo of the code</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

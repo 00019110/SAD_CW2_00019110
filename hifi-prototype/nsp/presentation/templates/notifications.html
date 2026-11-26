@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Notifications</h1><div class="sub">Alerts, follow-up tasks and attendance exceptions sent to you.</div></div></div>
+<div class="card flush">
+  <table>
+    <tbody>
+    {% for n in inbox %}
+      <tr>
+        <td class="nowrap num muted" style="width:130px">{{ n.created_at.strftime('%d %b, %H:%M') }}</td>
+        <td>{% if not n.read %}<span class="chip info">New</span> {% endif %}{{ n.message }}</td>
+        <td class="right">{% if n.link %}<a class="btn small ghost" href="{{ n.link }}">Open</a>{% endif %}</td>
+      </tr>
+    {% else %}
+      <tr><td class="empty">No notifications.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

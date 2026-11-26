@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in · NSP Learning Centre</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="plain-page">
+  <div class="login">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}
+    {% endwith %}
+    <h1>NSP Learning Centre</h1>
+    <p class="muted">Teacher Workload, KPI &amp; Retention module for EduTizim. Choose an account to sign in.</p>
+    <form method="post" action="{{ url_for('auth.sign_in') }}">
+      {% for heading, users in accounts %}
+        <h3 style="margin-top:18px">{{ heading }}</h3>
+        <div class="accounts">
+          {% for user in users %}
+            <button class="account" name="user_id" value="{{ user.id }}">
+              <span class="avatar">{{ user.initials }}</span>
+              <span><b>{{ user.full_name }}</b><small>{{ user.role_label }}{% if user.subject %} · {{ user.subject.value }}{% endif %}</small></span>
+            </button>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </form>
+    <p class="small muted">Prototype: accounts are the centre's existing EduTizim accounts, so no separate password is asked here. All names and figures are fictional demo data.</p>
+  </div>
+</div>
+</body>
+</html>

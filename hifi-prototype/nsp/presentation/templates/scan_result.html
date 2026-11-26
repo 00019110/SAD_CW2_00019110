@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Scan result{% endblock %}
+{% block content %}
+<div class="phone">
+{% if outcome == 'checked_in' %}
+  {% set c = result.check_in %}
+  <div class="result-icon">✓</div>
+  <h2>Checked in{% if c.minutes_late %} – late{% endif %}</h2>
+  <p class="muted" style="text-align:center">{{ 'Your work session has started.' if result.work_session else 'You are marked in the lesson register.' }}</p>
+  <dl class="kv">
+    <dt>{{ item.kind_label }}</dt><dd>{{ item.group.name }} · {{ item.group.subject.value }}</dd>
+    <dt>Room</dt><dd>{{ item.room.name }}</dd>
+    <dt>Scheduled</dt><dd>{{ item.starts_at.strftime('%H:%M') }} – {{ item.ends_at.strftime('%H:%M') }}</dd>
+    <dt>Scanned at</dt><dd>{{ c.timestamp.strftime('%H:%M') }}</dd>
+    <dt>Status</dt><dd><span class="chip {{ 'warn' if c.minutes_late else 'good' }}">{{ c.status.value }}{% if c.minutes_late %} · {{ c.minutes_late }} min{% endif %}</span></dd>
+    <dt>Method</dt><dd>{{ c.method.value }}</dd>
+  </dl>
+  {% if result.work_session and item.has_register %}<a class="btn big" href="{{ url_for('register.show', session_id=item.id) }}">Open the lesson register</a>{% endif %}
+{% elif outcome == 'duplicate' %}
+  {% set c = result.check_in %}
+  <div class="result-icon note">i</div>
+  <h2>Already checked in</h2>
+  <p class="muted" style="text-align:center">You checked in to {{ item.group.name }} at <b>{{ c.timestamp.strftime('%H:%M') }}</b>. No second record was created.</p>
+  {% if result.check_in.user_id == current_user.id and current_user.can('submit_register') and item.has_register %}<a class="btn big" href="{{ url_for('register.show', session_id=item.id) }}">Open the lesson register</a>{% endif %}
+{% elif outcome == 'checked_out' %}
+  <div class="result-icon">✓</div>
+  <h2>Checked out{% if work.status.value == 'Left early' %} – left early{% endif %}</h2>
+  <dl class="kv">
+    <dt>{{ item.kind_label }}</dt><dd>{{ item.group.name }} · {{ item.room.name }}</dd>
+    <dt>Checked in</dt><dd>{{ work.check_in_at.strftime('%H:%M') }}</dd>
+    <dt>Checked out</dt><dd>{{ work.check_out_at.strftime('%H:%M') }}</dd>
+    <dt>Hours worked</dt><dd>{{ work.worked_minutes|minutes }}</dd>
+    {% if work.overtime_minutes %}<dt>Overtime</dt><dd><span class="chip info">{{ work.overtime_minutes|minutes }}</span></dd>{% endif %}
+    {% if work.shortfall_minutes %}<dt>Left early by</dt><dd><span class="chip warn">{{ work.shortfall_minutes|minutes }}</span></dd>{% endif %}
+  </dl>
+{% else %}
+  <div class="result-icon bad">!</div>
+  <h2>Scan not accepted</h2>
+  <div class="banner crit" style="margin-top:12px"><span>{{ error.message }}</span></div>
+  {% if see_admin %}
+    <div class="banner warn"><span><b>{{ failed }} failed attempts.</b> Please go to the Administrator, who can confirm your attendance manually.</span></div>
+  {% else %}
+    <p class="muted small" style="text-align:center">Attempt {{ failed }} of 3. After three failed attempts the Administrator confirms attendance manually.</p>
+  {% endif %}
+{% endif %}
+  <p style="margin-top:10px"><a class="btn big ghost" href="{{ url_for('attendance.scan', room=(room.id if room else item.room_id)) }}">Scan again</a></p>
+  <p style="text-align:center;margin:10px 0 0"><a href="{{ url_for('auth.today') }}">Back to today</a></p>
+</div>
+{% endblock %}
